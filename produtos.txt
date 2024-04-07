@@ -1,0 +1,11 @@
+1,Camiseta Branca,19.99,50
+2,Calça Jeans,89.9,40
+3,Vestido Floral,59.95,30
+4,Blusa de Moletom,45,25
+5,Jaqueta de Couro,199.99,15
+6,Tênis Esportivo,120,35
+7,Shorts de Algodão,25.5,45
+8,Meias Coloridas,9.99,60
+9,Cinto de Couro,34.9,20
+10,Chapéu de Sol,29.9,18
+11,Bone Vermelho,39.9,6
