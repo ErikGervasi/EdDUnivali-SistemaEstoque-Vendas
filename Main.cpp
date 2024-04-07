@@ -519,7 +519,7 @@ void menuPrincipal(LUE& listaProdutos, ListaVendas& listaVendas) {
                 cout << "Saindo do sistema..." << endl;
                 break;
             default:
-                cout << "Opcao invalida. Tente novamente." << endl;
+                cout << "Opcao invalida. Tente novamente!" << endl;
         }
     } while (opcao != 0);
 }
