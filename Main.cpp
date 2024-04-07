@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <windows.h>
 
 using namespace std;
 
@@ -132,8 +133,7 @@ void salvarLista(LUE lista) {
 void pesquisarProduto(LUE& listaProdutos) {
     string codigo;  // Modificado de char para string
     cout << "Digite o codigo do produto: ";
-    cin >> codigo;  // Sem necessidade de cin.ignore para strings
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin >> codigo;
 
     NoProduto* atual = listaProdutos.comeco;
     while (atual != nullptr) {
@@ -152,7 +152,9 @@ void pesquisarProduto(LUE& listaProdutos) {
 void adicionarProduto(LUE &listaProdutos) {
     Produto *novoProduto = new Produto;
     cout << "Digite o codigo do produto: ";
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
     getline(cin, novoProduto->codigo);  // Modificado para usar getline
+
 
     cout << "Digite o nome do produto: ";
     getline(cin, novoProduto->nome);
@@ -322,13 +324,18 @@ void limparListaCompras(ListaCompras& lista) {
 }
 
 void finalizarCompra(ListaCompras& listaCompras, Caixa& caixa, ListaVendas& listaVendas) {
+    // Zera o total da caixa para evitar acumulo de valores de compras anteriores
+    caixa.total = 0.0;
+    caixa.desconto = 0.0;
+
+    // Calcula o total da compra
     ItemCompra* atual = listaCompras.primeiro;
     while (atual != nullptr) {
         caixa.total += atual->produto->preco * atual->quantidade;
         atual = atual->proximo;
     }
 
-    // Aplicar descontos
+    // Aplica descontos se aplicavel
     if (caixa.total > 100) { // Supondo um desconto para compras acima de 100
         caixa.desconto = caixa.total * 0.10; // Desconto de 10%
         caixa.total -= caixa.desconto;
@@ -337,11 +344,12 @@ void finalizarCompra(ListaCompras& listaCompras, Caixa& caixa, ListaVendas& list
     cout << "Total da compra (com desconto, se aplicavel): R$ " << caixa.total << endl;
     cout << "Desconto aplicado: R$ " << caixa.desconto << endl;
 
-    // Pergunta a forma de pagamento e o ID do vendedor
+    // Pede a forma de pagamento e o ID do vendedor
     cout << "Informe a forma de pagamento (ex: Dinheiro, Cartao): ";
-    cin >> caixa.formaPagamento;
+    cin.ignore(); // Limpa o buffer de entrada antes de ler a string
+    getline(cin, caixa.formaPagamento);
     cout << "Informe o ID do vendedor: ";
-    cin >> caixa.idVendedor;
+    getline(cin, caixa.idVendedor);
 
     // Pergunta o valor pago pelo cliente e calcula o troco
     float valorPago;
@@ -350,13 +358,13 @@ void finalizarCompra(ListaCompras& listaCompras, Caixa& caixa, ListaVendas& list
 
     if (valorPago < caixa.total) {
         cout << "Valor insuficiente. Transacao nao completada." << endl;
-        // Considerar o que fazer nesse caso, talvez voltar para o menu ou pedir um valor adequado novamente
+        // A lista de compras nao e limpa aqui, permitindo ao usuario tentar novamente
     } else {
         float troco = valorPago - caixa.total;
         cout << "Troco: R$" << troco << endl;
 
-        // Adiciona a venda à lista de vendas
-        RegistroVenda* novaVenda = new RegistroVenda{caixa.total, caixa.desconto, caixa.formaPagamento, caixa.idVendedor};
+        // Adiciona a venda a lista de vendas
+        RegistroVenda* novaVenda = new RegistroVenda{caixa.total, caixa.desconto, caixa.formaPagamento, caixa.idVendedor, nullptr};
         if (listaVendas.primeiro == nullptr) {
             listaVendas.primeiro = novaVenda;
             listaVendas.ultimo = novaVenda;
@@ -365,8 +373,78 @@ void finalizarCompra(ListaCompras& listaCompras, Caixa& caixa, ListaVendas& list
             listaVendas.ultimo = novaVenda;
         }
 
-        // Limpeza da lista de compras após finalizar a compra
-        limparListaCompras(listaCompras);
+        // Limpeza da lista de compras apos finalizar a compra com sucesso
+        while (listaCompras.primeiro != nullptr) {
+            ItemCompra* temp = listaCompras.primeiro;
+            listaCompras.primeiro = listaCompras.primeiro->proximo;
+            delete temp;
+        }
+        listaCompras.ultimo = nullptr; // Importante para indicar que a lista está vazia
+    }
+}
+
+void exibirProdutosDisponiveis() {
+    ifstream arquivo("produtos.txt");
+    if (!arquivo.is_open()) {
+        cout << "Erro ao abrir o arquivo produtos.txt." << endl;
+        return;
+    }
+
+    string linha;
+    cout << "Produtos Disponiveis:" << endl;
+    while (getline(arquivo, linha)) {
+        stringstream ss(linha);
+        string codigo, nome;
+        float preco;
+        int quantidade;
+        getline(ss, codigo, ',');
+        getline(ss, nome, ',');
+        ss >> preco;
+        ss.ignore(); // Ignora a vírgula
+        ss >> quantidade;
+
+        cout << "Codigo: " << codigo << ", Nome: " << nome << ", Preco: R$" << preco << ", Quantidade: " << quantidade << endl;
+    }
+
+    arquivo.close();
+}
+
+void removerProduto(LUE& listaProdutos) {
+    string codigo;
+    cout << "Digite o codigo do produto a ser removido: ";
+    cin >> codigo;
+
+    ifstream arquivoEntrada("produtos.txt");
+    ofstream arquivoTemporario("temp.txt");
+
+    if (!arquivoEntrada.is_open() || !arquivoTemporario.is_open()) {
+        cout << "Erro ao abrir os arquivos." << endl;
+        return;
+    }
+
+    string linha;
+    bool produtoEncontrado = false;
+    while (getline(arquivoEntrada, linha)) {
+        stringstream ss(linha);
+        string codigoProduto;
+        getline(ss, codigoProduto, ',');
+        if (codigoProduto != codigo) {
+            arquivoTemporario << linha << endl;
+        } else {
+            produtoEncontrado = true;
+        }
+    }
+
+    arquivoEntrada.close();
+    arquivoTemporario.close();
+
+    if (!produtoEncontrado) {
+        cout << "Produto nao encontrado." << endl;
+        remove("temp.txt"); // Remove o arquivo temporário, pois não é necessário
+    } else {
+        remove("produtos.txt"); // Remove o arquivo original
+        rename("temp.txt", "produtos.txt"); // Renomeia o arquivo temporário para o nome original
+        cout << "Produto removido com sucesso." << endl;
     }
 }
 
@@ -417,7 +495,7 @@ void menuGerencia(LUE& listaProdutos) {
                 adicionarProduto(listaProdutos);
                 break;
             case 3:
-                // Lógica para remover produto do estoque
+                removerProduto(listaProdutos);
                 break;
             case 4:
                 reajustarPreco(listaProdutos);
@@ -450,7 +528,7 @@ void menuCompras(LUE& listaProdutos, ListaCompras& listaCompras) {
 
         switch (opcao) {
             case 1:
-                // Lógica para exibir lista de produtos disponíveis
+                exibirProdutosDisponiveis();
                 break;
             case 2:
                 adicionarProdutoListaCompras(listaProdutos, listaCompras);
@@ -526,6 +604,7 @@ void menuPrincipal(LUE& listaProdutos, ListaVendas& listaVendas) {
 
 
 int main() {
+    SetConsoleOutputCP(CP_UTF8);
     ListaVendas listaVendas;
     LUE listaProdutos;
     carregarLista(listaProdutos);
